@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, Query, status
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse, HTMLResponse
 from typing import List, Optional, Dict, Any
 from src.database.db_manager import DatabaseManager
 from src.database.models import ProfileSnapshot, PostSnapshot, FollowerHistoryRecord, AnalyticsSummary, MonthlyStatistics
@@ -41,11 +41,40 @@ async def global_exception_handler(request, exc):
 
 # --- Endpoints ---
 
-@app.get("/", include_in_schema=False)
-def root_redirect():
-    """Redirects the root URL request to the interactive API documentation page."""
-    logger.info("GET / requested, redirecting to /docs")
-    return RedirectResponse(url="/docs")
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+def get_dashboard():
+    """Renders the premium interactive web dashboard."""
+    logger.info("GET / requested, rendering HTML dashboard")
+    from pathlib import Path
+    template_path = Path(__file__).resolve().parent / "templates" / "index.html"
+    if not template_path.exists():
+        logger.error(f"Dashboard template not found at {template_path}")
+        return HTMLResponse(content="<h1>LinkedIn AI Analytics Dashboard</h1><p>Template file is missing. Please build the templates/index.html file.</p>", status_code=404)
+    try:
+        with open(template_path, "r", encoding="utf-8") as f:
+            html_content = f.read()
+        return HTMLResponse(content=html_content)
+    except Exception as e:
+        logger.critical(f"Failed to read dashboard template: {e}", exc_info=True)
+        return HTMLResponse(content=f"<h1>Error loading dashboard</h1><p>{e}</p>", status_code=500)
+
+@app.get("/analytics/report", tags=["Analytics"])
+def get_analytics_report():
+    """Retrieves the generated monthly AI insights markdown report."""
+    logger.info("GET /analytics/report requested")
+    from pathlib import Path
+    project_root = Path(__file__).resolve().parent.parent.parent
+    report_path = project_root / "reports" / "monthly_ai_report.md"
+    if not report_path.exists():
+        logger.warning(f"AI report file not found at {report_path}")
+        raise HTTPException(status_code=404, detail="Monthly AI performance report has not been generated yet.")
+    try:
+        with open(report_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        return {"report": content}
+    except Exception as e:
+        logger.error(f"Failed to read AI report: {e}")
+        raise HTTPException(status_code=500, detail=f"Error reading report file: {str(e)}")
 
 @app.get("/health", tags=["System"])
 def health_check(db: DatabaseManager = Depends(get_db)):
