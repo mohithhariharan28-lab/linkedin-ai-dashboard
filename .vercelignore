@@ -1,0 +1,9 @@
+venv/
+.streamlit/
+logs/
+data/session.json
+data/shares_bottom.png
+run_*.py
+scratch/
+.env
+.git
