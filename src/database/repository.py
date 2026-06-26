@@ -1,4 +1,5 @@
 import json
+import os
 import sqlite3
 from pathlib import Path
 from typing import Optional, List, Tuple
@@ -23,15 +24,26 @@ class LinkedInRepository:
         project_root = Path(__file__).resolve().parent.parent.parent
         self.db_path = Path(db_path or project_root / "data" / "linkedin.db")
         
-        # Ensure parent directories exist
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        # Determine if running in Vercel serverless environment (read-only)
+        self.is_vercel = os.environ.get("VERCEL") is not None
         
-        # Initialize the database schema
-        self.init_db()
+        # Skip database creation and setup when running on Vercel
+        if not self.is_vercel:
+            # Ensure parent directories exist
+            self.db_path.parent.mkdir(parents=True, exist_ok=True)
+            # Initialize the database schema
+            self.init_db()
+        else:
+            logger.info("Running on Vercel: Skipping database schema/migration initialization.")
 
     def _get_connection(self) -> sqlite3.Connection:
         """Helper to get a database connection with dictionary/row factory."""
-        conn = sqlite3.connect(str(self.db_path))
+        if self.is_vercel:
+            # Open SQLite in read-only mode using a URI path with mode=ro to avoid write locking/journal attempts
+            db_uri = f"file:{self.db_path.as_posix()}?mode=ro"
+            conn = sqlite3.connect(db_uri, uri=True)
+        else:
+            conn = sqlite3.connect(str(self.db_path))
         conn.row_factory = sqlite3.Row
         return conn
 
