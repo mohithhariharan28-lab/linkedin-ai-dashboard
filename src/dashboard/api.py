@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, Query, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from typing import List, Optional, Dict, Any
 from src.database.db_manager import DatabaseManager
 from src.database.models import ProfileSnapshot, PostSnapshot, FollowerHistoryRecord, AnalyticsSummary, MonthlyStatistics
@@ -40,6 +40,12 @@ async def global_exception_handler(request, exc):
     )
 
 # --- Endpoints ---
+
+@app.get("/", include_in_schema=False)
+def root_redirect():
+    """Redirects the root URL request to the interactive API documentation page."""
+    logger.info("GET / requested, redirecting to /docs")
+    return RedirectResponse(url="/docs")
 
 @app.get("/health", tags=["System"])
 def health_check(db: DatabaseManager = Depends(get_db)):
